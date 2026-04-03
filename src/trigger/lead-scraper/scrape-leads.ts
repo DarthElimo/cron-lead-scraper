@@ -155,17 +155,21 @@ async function ensureHeaders(token: string, spreadsheetId: string): Promise<void
   }
 }
 
-async function fetchExistingNames(token: string, spreadsheetId: string): Promise<Set<string>> {
+function dedupeKey(name: string, address: string): string {
+  return `${name.toLowerCase().trim()}|${address.toLowerCase().trim()}`;
+}
+
+async function fetchExistingKeys(token: string, spreadsheetId: string): Promise<Set<string>> {
   const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:A`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:B`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const data = await res.json() as { values?: string[][] };
-  const names = new Set<string>();
+  const keys = new Set<string>();
   for (const row of data.values ?? []) {
-    if (row[0]) names.add(row[0].toLowerCase().trim());
+    if (row[0]) keys.add(dedupeKey(row[0], row[1] ?? ""));
   }
-  return names;
+  return keys;
 }
 
 async function appendLeads(
@@ -246,26 +250,26 @@ export const scrapeLeads = schemaTask({
     const leads = allResults.slice(0, count);
     console.log(`${leads.length} Firmen gefunden.${emailSearch ? " Starte E-Mail-Suche..." : ""}`);
 
-    // Bestehende Namen aus dem Sheet laden für Duplikat-Prüfung
-    const existingNames = await fetchExistingNames(token, spreadsheetId);
-    console.log(`${existingNames.size} bestehende Einträge im Sheet geladen.`);
+    // Bestehende Einträge (Name + Adresse) aus dem Sheet laden für Duplikat-Prüfung
+    const existingKeys = await fetchExistingKeys(token, spreadsheetId);
+    console.log(`${existingKeys.size} bestehende Einträge im Sheet geladen.`);
 
     const rows: string[][] = [];
     let skipped = 0;
 
     for (const lead of leads) {
       const name = lead.title ?? "";
-      const nameKey = name.toLowerCase().trim();
+      const address = lead.address ?? "";
+      const key = dedupeKey(name, address);
 
-      // Duplikat-Prüfung: bereits im Sheet oder bereits in diesem Batch
-      if (existingNames.has(nameKey)) {
-        console.log(`  Übersprungen (Duplikat): ${name}`);
+      // Duplikat-Prüfung: identischer Lead (Name + Adresse) bereits vorhanden
+      if (existingKeys.has(key)) {
+        console.log(`  Übersprungen (Duplikat): ${name} — ${address}`);
         skipped++;
         continue;
       }
-      existingNames.add(nameKey); // für Duplikate innerhalb des aktuellen Batches
+      existingKeys.add(key); // für Duplikate innerhalb des aktuellen Batches
 
-      const address = lead.address ?? "";
       const city = address.split(",").at(-1)?.trim() ?? "";
       const website = lead.website ?? "";
       const phone = lead.phone ?? "";
