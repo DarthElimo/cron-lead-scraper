@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lead Scraper</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0f0f;
+      color: #e5e5e5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2e2e2e;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 480px;
+    }
+    h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 32px; }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #aaa;
+      margin-bottom: 6px;
+    }
+    input[type="text"],
+    input[type="number"],
+    input[type="password"] {
+      width: 100%;
+      background: #111;
+      border: 1px solid #2e2e2e;
+      border-radius: 8px;
+      color: #e5e5e5;
+      font-size: 15px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.15s;
+      margin-bottom: 18px;
+    }
+    input:focus { border-color: #555; }
+    input::placeholder { color: #444; }
+
+    /* Toggle */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #111;
+      border: 1px solid #2e2e2e;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 24px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-row:hover { border-color: #444; }
+    .toggle-label { font-size: 14px; color: #ccc; }
+    .toggle-sub { font-size: 12px; color: #555; margin-top: 2px; }
+    .switch {
+      position: relative;
+      width: 42px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: #2e2e2e;
+      border-radius: 24px;
+      transition: background 0.2s;
+    }
+    .slider::before {
+      content: "";
+      position: absolute;
+      width: 18px; height: 18px;
+      left: 3px; top: 3px;
+      background: #666;
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    input:checked + .slider { background: #2a4a2a; }
+    input:checked + .slider::before { transform: translateX(18px); background: #7fcc7f; }
+
+    button {
+      width: 100%;
+      background: #e5e5e5;
+      color: #0f0f0f;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button:hover:not(:disabled) { background: #fff; }
+    button:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+    .status {
+      margin-top: 20px;
+      padding: 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.5;
+      display: none;
+    }
+    .status.info    { background: #1a2a3a; border: 1px solid #2a4a6a; color: #7ab8f5; display: block; }
+    .status.success { background: #1a2e1a; border: 1px solid #2a5a2a; color: #7fcc7f; display: block; }
+    .status.error   { background: #2e1a1a; border: 1px solid #5a2a2a; color: #cc7f7f; display: block; }
+    .run-link { color: #7ab8f5; text-decoration: underline; }
+
+    .api-section { margin-top: 28px; padding-top: 20px; border-top: 1px solid #2e2e2e; }
+    .api-section summary { font-size: 12px; color: #555; cursor: pointer; }
+    .api-section input { margin-top: 10px; font-size: 12px; margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Lead Scraper</h1>
+    <p class="subtitle">Google Maps Leads direkt ins Google Sheet</p>
+
+    <label for="keyword">Branche / Suchbegriff</label>
+    <input id="keyword" type="text" placeholder="z.B. Heizung Sanitär" />
+
+    <label for="location">Standort</label>
+    <input id="location" type="text" placeholder="z.B. Stuttgart" />
+
+    <label for="count">Anzahl Leads (max. 500)</label>
+    <input id="count" type="number" value="20" min="1" max="500" />
+
+    <label>E-Mail-Suche</label>
+    <label class="toggle-row" for="emailToggle">
+      <div>
+        <div class="toggle-label">Website nach E-Mail durchsuchen</div>
+        <div class="toggle-sub">Impressum, Kontakt, About — dauert länger</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="emailToggle" />
+        <span class="slider"></span>
+      </label>
+    </label>
+
+    <button id="runBtn" onclick="triggerScraper()">Scraping starten</button>
+
+    <div id="status" class="status"></div>
+
+    <details class="api-section">
+      <summary>API Key &amp; Einstellungen</summary>
+      <label for="apiKey" style="margin-top:12px; display:block; font-size:13px; color:#aaa;">Trigger.dev Secret Key</label>
+      <input id="apiKey" type="password" placeholder="tr_dev_..." value="tr_dev_gz3CuArCnwA78IFq0z0z" />
+    </details>
+  </div>
+
+  <script>
+    async function triggerScraper() {
+      const keyword     = document.getElementById("keyword").value.trim();
+      const location    = document.getElementById("location").value.trim();
+      const count       = parseInt(document.getElementById("count").value, 10);
+      const emailSearch = document.getElementById("emailToggle").checked;
+      const apiKey      = document.getElementById("apiKey").value.trim();
+      const btn         = document.getElementById("runBtn");
+
+      if (!keyword || !location) {
+        showStatus("Bitte Suchbegriff und Standort eingeben.", "error");
+        return;
+      }
+      if (isNaN(count) || count < 1 || count > 500) {
+        showStatus("Anzahl muss zwischen 1 und 500 liegen.", "error");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Läuft…";
+      showStatus("Task wird gestartet…", "info");
+
+      try {
+        const res = await fetch("https://api.trigger.dev/api/v1/tasks/scrape-leads/trigger", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ payload: { keyword, location, count, emailSearch } }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showStatus(`Fehler: ${data.error || JSON.stringify(data)}`, "error");
+        } else {
+          const runUrl = `https://cloud.trigger.dev/runs/${data.id}`;
+          const emailHint = emailSearch
+            ? "E-Mail-Suche ist <strong>aktiv</strong> — dauert länger."
+            : "E-Mail-Suche ist <strong>aus</strong> — nur Google Maps Daten.";
+          showStatus(
+            `Task gestartet! <a class="run-link" href="${runUrl}" target="_blank">Run öffnen →</a><br><br>
+            ${emailHint}<br>
+            Die Leads landen automatisch im Google Sheet.`,
+            "success"
+          );
+        }
+      } catch (err) {
+        showStatus(`Netzwerkfehler: ${err.message}<br><br>Läuft der Dev-Server? (<code>npm run dev</code>)`, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Scraping starten";
+      }
+    }
+
+    function showStatus(html, type) {
+      const el = document.getElementById("status");
+      el.innerHTML = html;
+      el.className = `status ${type}`;
+    }
+  </script>
+</body>
+</html>
