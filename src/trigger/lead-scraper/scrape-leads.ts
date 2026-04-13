@@ -17,28 +17,66 @@ interface LocalResult {
 }
 
 // ---------------------------------------------------------------------------
-// Google Maps Suche via SerpAPI
+// Google Maps Suche via DataForSEO
 // ---------------------------------------------------------------------------
 
-async function searchGoogleMaps(
-  query: string,
-  start: number,
-  apiKey: string
-): Promise<{ local_results?: LocalResult[]; serpapi_pagination?: { next?: string } }> {
-  const params = new URLSearchParams({
-    engine: "google_maps",
-    q: query,
-    api_key: apiKey,
-    type: "search",
-    start: start.toString(),
-    hl: "de",
-  });
+async function searchDataForSEO(
+  keyword: string,
+  location: string,
+  count: number,
+  login: string,
+  password: string
+): Promise<LocalResult[]> {
+  const auth = Buffer.from(`${login}:${password}`).toString("base64");
+  const query = `${keyword} ${location}`.trim();
 
-  const res = await fetch(`https://serpapi.com/search.json?${params}`);
+  const res = await fetch(
+    "https://api.dataforseo.com/v3/serp/google/maps/live/advanced",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify([
+        {
+          keyword: query,
+          location_name: "Germany",
+          language_code: "de",
+          depth: Math.min(count, 700),
+        },
+      ]),
+    }
+  );
+
   if (!res.ok) {
-    throw new Error(`SerpAPI Fehler ${res.status}: ${await res.text()}`);
+    throw new Error(`DataForSEO Fehler ${res.status}: ${await res.text()}`);
   }
-  return res.json() as Promise<{ local_results?: LocalResult[]; serpapi_pagination?: { next?: string } }>;
+
+  const data = await res.json() as {
+    tasks?: Array<{
+      result?: Array<{
+        items?: Array<{
+          title?: string;
+          address?: string;
+          phone?: string;
+          domain?: string;
+          rating?: { value?: number; votes_count?: number };
+        }>;
+      }>;
+    }>;
+  };
+
+  const items = data.tasks?.[0]?.result?.[0]?.items ?? [];
+
+  return items.map((item) => ({
+    title: item.title,
+    address: item.address,
+    phone: item.phone,
+    website: item.domain ? `https://${item.domain}` : undefined,
+    rating: item.rating?.value,
+    reviews: item.rating?.votes_count,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -204,8 +242,10 @@ export const scrapeLeads = schemaTask({
   }),
   retry: { maxAttempts: 2, factor: 2, minTimeoutInMs: 1000, maxTimeoutInMs: 10000 },
   run: async (payload) => {
-    const serpApiKey = process.env.SERPAPI_KEY;
-    if (!serpApiKey) throw new Error("SERPAPI_KEY ist nicht gesetzt");
+    const dataForSeoLogin = process.env.DATAFORSEO_LOGIN;
+    if (!dataForSeoLogin) throw new Error("DATAFORSEO_LOGIN ist nicht gesetzt");
+    const dataForSeoPassword = process.env.DATAFORSEO_PASSWORD;
+    if (!dataForSeoPassword) throw new Error("DATAFORSEO_PASSWORD ist nicht gesetzt");
 
     const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
     if (!spreadsheetId) throw new Error("GOOGLE_SPREADSHEET_ID ist nicht gesetzt");
@@ -226,29 +266,12 @@ export const scrapeLeads = schemaTask({
     const token = await getAccessToken(serviceAccountEmail, privateKey);
     console.log("Google Sheets Authentifizierung erfolgreich.");
 
-    const allResults: LocalResult[] = [];
-    let start = 0;
-
-    while (allResults.length < count) {
-      console.log(`SerpAPI Seite ${Math.floor(start / 20) + 1} (Start: ${start})...`);
-      const data = await searchGoogleMaps(query, start, serpApiKey);
-      const results = data.local_results ?? [];
-
-      if (results.length === 0) {
-        console.log("Keine weiteren Ergebnisse.");
-        break;
-      }
-
-      allResults.push(...results);
-      console.log(`${allResults.length} Firmen gesammelt.`);
-
-      if (!data.serpapi_pagination?.next) break;
-      start += 20;
-      await new Promise((r) => setTimeout(r, 600));
-    }
+    console.log(`DataForSEO Suche: "${query}" | Angefragt: ${count} Ergebnisse...`);
+    const allResults = await searchDataForSEO(keyword, location, count, dataForSeoLogin, dataForSeoPassword);
+    console.log(`${allResults.length} Firmen gefunden.`);
 
     const leads = allResults.slice(0, count);
-    console.log(`${leads.length} Firmen gefunden.${emailSearch ? " Starte E-Mail-Suche..." : ""}`);
+    if (emailSearch && leads.length > 0) console.log("Starte E-Mail-Suche...");
 
     // Bestehende Einträge (Name + Adresse) aus dem Sheet laden für Duplikat-Prüfung
     const existingKeys = await fetchExistingKeys(token, spreadsheetId);
