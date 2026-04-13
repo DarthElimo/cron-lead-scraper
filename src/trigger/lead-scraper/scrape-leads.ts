@@ -215,15 +215,28 @@ async function appendLeads(
   spreadsheetId: string,
   rows: string[][]
 ): Promise<void> {
-  const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:J:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ values: rows }),
+  const maxAttempts = 5;
+  let delayMs = 60_000; // start with 60s — the Sheets quota window is 1 minute
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:J:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ values: rows }),
+      }
+    );
+
+    if (res.ok) return;
+
+    if (res.status === 429 && attempt < maxAttempts) {
+      console.log(`Google Sheets Schreib-Limit erreicht (429). Warte ${delayMs / 1000}s, dann Versuch ${attempt + 1}/${maxAttempts}…`);
+      await new Promise((r) => setTimeout(r, delayMs));
+      delayMs = Math.min(delayMs * 1.5, 300_000); // cap at 5 minutes
+      continue;
     }
-  );
-  if (!res.ok) {
+
     throw new Error(`Google Sheets Fehler ${res.status}: ${await res.text()}`);
   }
 }
