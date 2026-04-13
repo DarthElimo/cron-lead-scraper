@@ -7,7 +7,7 @@
     "deploy": "npx trigger.dev@latest deploy"
   },
   "dependencies": {
-    "@trigger.dev/sdk": "^4.4.3",
+    "@trigger.dev/sdk": "^4.4.4",
     "zod": "^3.23.0"
   },
   "devDependencies": {

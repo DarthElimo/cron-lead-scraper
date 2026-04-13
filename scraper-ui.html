@@ -68,11 +68,11 @@
       border-radius: 16px;
       padding: 40px;
       width: 100%;
-      max-width: 480px;
+      max-width: 640px;
       position: relative;
       overflow: hidden;
+      transition: max-width 0.3s ease;
     }
-    /* Radial gold glow top-right */
     .card::before {
       content: '';
       position: absolute;
@@ -102,8 +102,35 @@
     .subtitle {
       font-size: 15px;
       color: var(--text-60);
-      margin-bottom: 36px;
+      margin-bottom: 28px;
       line-height: 1.5;
+    }
+
+    /* ── Mode Tabs ────────────────────────── */
+    .mode-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 28px;
+    }
+    .mode-tab {
+      flex: 1;
+      padding: 9px 0;
+      border-radius: 8px;
+      border: 1px solid rgba(250,249,246,0.09);
+      background: transparent;
+      color: var(--text-60);
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: background 0.18s, border-color 0.18s, color 0.18s;
+    }
+    .mode-tab:hover { border-color: var(--accent-30); color: var(--text); }
+    .mode-tab.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--btn-text);
     }
 
     /* ── Form fields ──────────────────────── */
@@ -131,9 +158,7 @@
       outline: none;
       transition: border-color 0.15s linear;
     }
-    input:focus {
-      border-color: var(--accent-30);
-    }
+    input:focus { border-color: var(--accent-30); }
     input::placeholder { color: rgba(250,249,246,0.22); }
 
     /* ── Toggle ───────────────────────────── */
@@ -236,6 +261,160 @@
     }
     .api-section summary:hover { color: var(--text-60); }
     .api-section .field { margin-top: 16px; margin-bottom: 0; }
+
+    /* ── Bulk Mode ────────────────────────── */
+    .list-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 4px;
+    }
+    @media (max-width: 520px) {
+      .list-grid { grid-template-columns: 1fr; }
+    }
+
+    .list-editor {
+      background: var(--bg-elevated);
+      border: 1px solid rgba(250,249,246,0.09);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+    .list-editor-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-60);
+      margin-bottom: 12px;
+    }
+
+    /* Single-entry add row */
+    .add-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .add-row input {
+      flex: 1;
+      font-size: 14px;
+      padding: 8px 11px;
+    }
+    .add-btn {
+      background: var(--accent-18);
+      border: 1px solid var(--accent-30);
+      border-radius: 8px;
+      color: var(--accent);
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, transform 0.15s var(--spring);
+      line-height: 1;
+    }
+    .add-btn:hover { background: var(--accent-30); transform: scale(1.08); }
+    .add-btn:active { transform: scale(0.96); }
+
+    /* Paste-many area */
+    .paste-area {
+      width: 100%;
+      background: var(--bg-dark);
+      border: 1px solid rgba(250,249,246,0.07);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 13px;
+      padding: 9px 11px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s;
+      margin-bottom: 6px;
+    }
+    .paste-area:focus { border-color: var(--accent-30); }
+    .paste-area::placeholder { color: rgba(250,249,246,0.20); }
+
+    .paste-add-btn {
+      width: 100%;
+      background: transparent;
+      border: 1px solid rgba(250,249,246,0.09);
+      border-radius: 8px;
+      color: var(--text-60);
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 0;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      margin-bottom: 12px;
+    }
+    .paste-add-btn:hover { border-color: var(--accent-30); color: var(--accent); }
+
+    /* Tag list */
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 32px;
+    }
+    .tag-empty {
+      font-size: 12px;
+      color: var(--text-40);
+      font-style: italic;
+      align-self: center;
+    }
+    .tag {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--accent-08);
+      border: 1px solid var(--accent-18);
+      border-radius: 6px;
+      padding: 3px 8px 3px 10px;
+      font-size: 13px;
+      color: var(--text);
+      max-width: 100%;
+    }
+    .tag-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 120px;
+    }
+    .tag-remove {
+      background: none;
+      border: none;
+      color: var(--text-40);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0;
+      flex-shrink: 0;
+      transition: color 0.15s;
+    }
+    .tag-remove:hover { color: var(--error); }
+
+    /* Combination count */
+    .combo-count {
+      text-align: center;
+      font-size: 14px;
+      color: var(--accent);
+      font-weight: 600;
+      padding: 14px 0 18px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .combo-count.visible { opacity: 1; }
+
+    @keyframes spin { to { stroke-dashoffset: -28; } }
   </style>
 </head>
 <body>
@@ -263,18 +442,72 @@
     <h1>Leads finden.</h1>
     <p class="subtitle">Suchbegriff eingeben — Ergebnisse landen direkt im Google Sheet.</p>
 
-    <div class="field">
-      <label for="keyword">Branche</label>
-      <input id="keyword" type="text" placeholder="z.B. Heizung Sanitär" />
+    <!-- Mode Tabs -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tabSingle" onclick="switchMode('single')">Einzeln</button>
+      <button class="mode-tab" id="tabBulk" onclick="switchMode('bulk')">Bulk Run</button>
     </div>
 
-    <div class="field">
-      <label for="location">Standort</label>
-      <input id="location" type="text" placeholder="z.B. Stuttgart" />
+    <!-- ── Single Mode ── -->
+    <div id="singleMode">
+      <div class="field">
+        <label for="keyword">Branche</label>
+        <input id="keyword" type="text" placeholder="z.B. Heizung Sanitär" />
+      </div>
+
+      <div class="field">
+        <label for="location">Standort</label>
+        <input id="location" type="text" placeholder="z.B. Stuttgart" />
+      </div>
     </div>
 
+    <!-- ── Bulk Mode ── -->
+    <div id="bulkMode" style="display:none">
+      <div class="list-grid">
+
+        <!-- Branchen -->
+        <div class="list-editor">
+          <div class="list-editor-title">Branchen</div>
+
+          <div class="add-row">
+            <input type="text" id="kwInput" placeholder="z.B. Heizungsbauer" onkeydown="if(event.key==='Enter') addKeyword()" />
+            <button class="add-btn" onclick="addKeyword()" title="Hinzufügen">+</button>
+          </div>
+
+          <textarea class="paste-area" id="kwPaste" rows="3" placeholder="Mehrere einfügen&#10;(einer pro Zeile)"></textarea>
+          <button class="paste-add-btn" onclick="pasteKeywords()">Alle hinzufügen</button>
+
+          <div class="tag-list" id="kwTags">
+            <span class="tag-empty">Noch keine Einträge</span>
+          </div>
+        </div>
+
+        <!-- Standorte -->
+        <div class="list-editor">
+          <div class="list-editor-title">Standorte</div>
+
+          <div class="add-row">
+            <input type="text" id="locInput" placeholder="z.B. Stuttgart" onkeydown="if(event.key==='Enter') addLocation()" />
+            <button class="add-btn" onclick="addLocation()" title="Hinzufügen">+</button>
+          </div>
+
+          <textarea class="paste-area" id="locPaste" rows="3" placeholder="Mehrere einfügen&#10;(einer pro Zeile)"></textarea>
+          <button class="paste-add-btn" onclick="pasteLocations()">Alle hinzufügen</button>
+
+          <div class="tag-list" id="locTags">
+            <span class="tag-empty">Noch keine Einträge</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Combination count -->
+      <div class="combo-count" id="comboCount"></div>
+    </div>
+
+    <!-- ── Shared Settings ── -->
     <div class="field">
-      <label for="count">Anzahl Leads (max. 500)</label>
+      <label for="count">Anzahl Leads pro Suche (max. 500)</label>
       <input id="count" type="number" value="20" min="1" max="500" />
     </div>
 
@@ -290,11 +523,23 @@
       </label>
     </label>
 
-    <button class="btn" id="runBtn" onclick="triggerScraper()">
+    <!-- Single Run Button -->
+    <button class="btn" id="runBtn" onclick="triggerScraper()" style="display:flex">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="5,3 13,8 5,13"/>
       </svg>
       Scraping starten
+    </button>
+
+    <!-- Bulk Run Button -->
+    <button class="btn" id="bulkBtn" onclick="triggerBulkScraper()" style="display:none">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="2" width="5" height="5" rx="1"/>
+        <rect x="9" y="2" width="5" height="5" rx="1"/>
+        <rect x="2" y="9" width="5" height="5" rx="1"/>
+        <rect x="9" y="9" width="5" height="5" rx="1"/>
+      </svg>
+      Bulk-Scraping starten
     </button>
 
     <div id="status" class="status"></div>
@@ -309,65 +554,222 @@
   </div>
 
   <script>
-    async function triggerScraper() {
-      const keyword     = document.getElementById("keyword").value.trim();
-      const location    = document.getElementById("location").value.trim();
-      const count       = parseInt(document.getElementById("count").value, 10);
-      const emailSearch = document.getElementById("emailToggle").checked;
-      const apiKey      = document.getElementById("apiKey").value.trim();
-      const btn         = document.getElementById("runBtn");
+    // ── State ──────────────────────────────────────────────
+    let keywords  = [];
+    let locations = [];
+    let currentMode = 'single';
 
-      if (!keyword || !location) {
-        showStatus("Bitte Branche und Standort eingeben.", "error");
+    // ── Mode Switch ────────────────────────────────────────
+    function switchMode(mode) {
+      currentMode = mode;
+      const isBulk = mode === 'bulk';
+
+      document.getElementById('singleMode').style.display = isBulk ? 'none' : 'block';
+      document.getElementById('bulkMode').style.display   = isBulk ? 'block' : 'none';
+      document.getElementById('runBtn').style.display     = isBulk ? 'none' : 'flex';
+      document.getElementById('bulkBtn').style.display    = isBulk ? 'flex' : 'none';
+
+      document.getElementById('tabSingle').classList.toggle('active', !isBulk);
+      document.getElementById('tabBulk').classList.toggle('active', isBulk);
+
+      document.getElementById('status').className = 'status';
+    }
+
+    // ── Keyword list helpers ───────────────────────────────
+    function addKeyword() {
+      const input = document.getElementById('kwInput');
+      const val   = input.value.trim();
+      if (!val) return;
+      addToList(keywords, val);
+      input.value = '';
+      renderKeywords();
+    }
+
+    function pasteKeywords() {
+      const area  = document.getElementById('kwPaste');
+      const lines = area.value.split('\n').map(s => s.trim()).filter(Boolean);
+      lines.forEach(l => addToList(keywords, l));
+      area.value = '';
+      renderKeywords();
+    }
+
+    function removeKeyword(index) {
+      keywords.splice(index, 1);
+      renderKeywords();
+    }
+
+    function renderKeywords() {
+      renderList('kwTags', keywords, removeKeyword);
+      updateComboCount();
+    }
+
+    // ── Location list helpers ──────────────────────────────
+    function addLocation() {
+      const input = document.getElementById('locInput');
+      const val   = input.value.trim();
+      if (!val) return;
+      addToList(locations, val);
+      input.value = '';
+      renderLocations();
+    }
+
+    function pasteLocations() {
+      const area  = document.getElementById('locPaste');
+      const lines = area.value.split('\n').map(s => s.trim()).filter(Boolean);
+      lines.forEach(l => addToList(locations, l));
+      area.value = '';
+      renderLocations();
+    }
+
+    function removeLocation(index) {
+      locations.splice(index, 1);
+      renderLocations();
+    }
+
+    function renderLocations() {
+      renderList('locTags', locations, removeLocation);
+      updateComboCount();
+    }
+
+    // ── Shared list utilities ──────────────────────────────
+    function addToList(arr, value) {
+      // Deduplicate case-insensitively
+      const lower = value.toLowerCase();
+      if (!arr.some(e => e.toLowerCase() === lower)) {
+        arr.push(value);
+      }
+    }
+
+    function renderList(containerId, arr, removeFn) {
+      const container = document.getElementById(containerId);
+      if (arr.length === 0) {
+        container.innerHTML = '<span class="tag-empty">Noch keine Einträge</span>';
         return;
       }
+      container.innerHTML = arr.map((item, i) =>
+        `<span class="tag">
+          <span class="tag-text" title="${escHtml(item)}">${escHtml(item)}</span>
+          <button class="tag-remove" onclick="${removeFn.name}(${i})" title="Entfernen">×</button>
+        </span>`
+      ).join('');
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function updateComboCount() {
+      const total = keywords.length * locations.length;
+      const el    = document.getElementById('comboCount');
+      if (total === 0) {
+        el.textContent = '';
+        el.classList.remove('visible');
+      } else {
+        el.innerHTML = `<strong>${total}</strong>&nbsp;Kombination${total !== 1 ? 'en' : ''} werden gestartet`;
+        el.classList.add('visible');
+      }
+    }
+
+    // ── Single Run ─────────────────────────────────────────
+    async function triggerScraper() {
+      const keyword     = document.getElementById('keyword').value.trim();
+      const location    = document.getElementById('location').value.trim();
+      const count       = parseInt(document.getElementById('count').value, 10);
+      const emailSearch = document.getElementById('emailToggle').checked;
+      const apiKey      = document.getElementById('apiKey').value.trim();
+      const btn         = document.getElementById('runBtn');
+
+      if (!keyword || !location) {
+        showStatus('Bitte Branche und Standort eingeben.', 'error'); return;
+      }
       if (isNaN(count) || count < 1 || count > 500) {
-        showStatus("Anzahl muss zwischen 1 und 500 liegen.", "error");
-        return;
+        showStatus('Anzahl muss zwischen 1 und 500 liegen.', 'error'); return;
       }
 
       btn.disabled = true;
-      btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="6" stroke-dasharray="28" stroke-dashoffset="10" style="animation:spin 0.8s linear infinite;transform-origin:center"/></svg> Läuft…`;
-      showStatus("Task wird gestartet…", "info");
+      btn.innerHTML = spinnerHtml('Läuft…');
+      showStatus('Task wird gestartet…', 'info');
 
       try {
-        const res = await fetch("https://api.trigger.dev/api/v1/tasks/scrape-leads/trigger", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`,
-          },
+        const res = await fetch('https://api.trigger.dev/api/v1/tasks/scrape-leads/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
           body: JSON.stringify({ payload: { keyword, location, count, emailSearch } }),
         });
-
         const data = await res.json();
-
         if (!res.ok) {
-          showStatus(`Fehler: ${data.error || JSON.stringify(data)}`, "error");
+          showStatus(`Fehler: ${data.error || JSON.stringify(data)}`, 'error');
         } else {
           const runUrl = `https://cloud.trigger.dev/runs/${data.id}`;
           showStatus(
             `Gestartet — ${count} Leads werden gesucht.<br>
             <a class="run-link" href="${runUrl}" target="_blank">Run live verfolgen →</a>`,
-            "success"
+            'success'
           );
         }
       } catch (err) {
-        showStatus(`Verbindungsfehler: ${err.message}`, "error");
+        showStatus(`Verbindungsfehler: ${err.message}`, 'error');
       } finally {
         btn.disabled = false;
         btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 13,8 5,13"/></svg> Scraping starten`;
       }
     }
 
+    // ── Bulk Run ───────────────────────────────────────────
+    async function triggerBulkScraper() {
+      const count       = parseInt(document.getElementById('count').value, 10);
+      const emailSearch = document.getElementById('emailToggle').checked;
+      const apiKey      = document.getElementById('apiKey').value.trim();
+      const btn         = document.getElementById('bulkBtn');
+
+      if (keywords.length === 0 || locations.length === 0) {
+        showStatus('Bitte mindestens eine Branche und einen Standort eingeben.', 'error'); return;
+      }
+      if (isNaN(count) || count < 1 || count > 500) {
+        showStatus('Anzahl muss zwischen 1 und 500 liegen.', 'error'); return;
+      }
+
+      const total = keywords.length * locations.length;
+      btn.disabled = true;
+      btn.innerHTML = spinnerHtml(`${total} Runs werden gestartet…`);
+      showStatus('Bulk-Task wird gestartet…', 'info');
+
+      try {
+        const res = await fetch('https://api.trigger.dev/api/v1/tasks/bulk-scrape/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({ payload: { keywords, locations, count, emailSearch } }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus(`Fehler: ${data.error || JSON.stringify(data)}`, 'error');
+        } else {
+          const runUrl = `https://cloud.trigger.dev/runs/${data.id}`;
+          showStatus(
+            `<strong>${total} Kombinationen</strong> wurden gestartet.<br>
+            ${keywords.length} Branchen × ${locations.length} Standorte<br>
+            <a class="run-link" href="${runUrl}" target="_blank">Orchestrator-Run verfolgen →</a>`,
+            'success'
+          );
+        }
+      } catch (err) {
+        showStatus(`Verbindungsfehler: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg> Bulk-Scraping starten`;
+      }
+    }
+
+    // ── Utilities ──────────────────────────────────────────
     function showStatus(html, type) {
-      const el = document.getElementById("status");
+      const el = document.getElementById('status');
       el.innerHTML = html;
       el.className = `status ${type}`;
     }
+
+    function spinnerHtml(label) {
+      return `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="6" stroke-dasharray="28" stroke-dashoffset="10" style="animation:spin 0.8s linear infinite;transform-origin:center"/></svg> ${label}`;
+    }
   </script>
-  <style>
-    @keyframes spin { to { stroke-dashoffset: -28; } }
-  </style>
 </body>
 </html>
