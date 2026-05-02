@@ -28,7 +28,7 @@ async function getSheetId(token: string, spreadsheetId: string): Promise<number>
 
 async function readAllRows(token: string, spreadsheetId: string): Promise<string[][]> {
   const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:J`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:K`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   if (!res.ok) {

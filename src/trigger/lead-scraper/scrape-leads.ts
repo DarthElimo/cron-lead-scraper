@@ -7,6 +7,7 @@ import {
   ensureHeaders,
   appendLeads,
 } from "./sheets-helpers.js";
+import { fetchImpressumHtml, extractOwner } from "./owner-extractor.js";
 
 // ---------------------------------------------------------------------------
 // Typen
@@ -99,8 +100,18 @@ function isValidEmail(email: string): boolean {
   return true;
 }
 
-async function extractEmail(websiteUrl: string): Promise<string> {
-  const pathsToCheck = ["/impressum", "/kontakt", "/contact", "/about", ""];
+async function extractEmail(websiteUrl: string, impressumHtml?: string): Promise<string> {
+  // Impressum-HTML wurde bereits geladen → direkt prüfen ohne erneuten Fetch
+  if (impressumHtml) {
+    const matches = impressumHtml.match(EMAIL_REGEX) ?? [];
+    const valid = matches.filter(isValidEmail);
+    if (valid.length > 0) return valid[0];
+  }
+
+  // Restliche Seiten prüfen (/impressum wurde bereits extern geladen)
+  const pathsToCheck = impressumHtml
+    ? ["/kontakt", "/contact", "/about", ""]
+    : ["/impressum", "/kontakt", "/contact", "/about", ""];
 
   for (const path of pathsToCheck) {
     try {
@@ -201,16 +212,28 @@ export const scrapeLeads = schemaTask({
       const rating = lead.rating?.toString() ?? "";
       const reviewCount = lead.reviews?.toString() ?? "";
 
-      // E-Mail: direkt aus Google Maps Daten, oder per Website-Scraping wenn emailSearch aktiv
+      // E-Mail und Geschäftsführer: aus Impressum-Seite extrahieren
       let email = lead.email ?? "";
-      if (!email && emailSearch && website) {
-        console.log(`  E-Mail suchen: ${name}`);
-        email = await extractEmail(website);
-        if (email) console.log(`    → ${email}`);
+      let owner = "";
+
+      if (website) {
+        const impressumHtml = await fetchImpressumHtml(website);
+
+        if (impressumHtml) {
+          owner = extractOwner(impressumHtml);
+          if (owner) console.log(`  Geschäftsführer: ${owner} (${name})`);
+        }
+
+        if (!email && emailSearch) {
+          console.log(`  E-Mail suchen: ${name}`);
+          email = await extractEmail(website, impressumHtml ?? undefined);
+          if (email) console.log(`    → ${email}`);
+        }
+
         await new Promise((r) => setTimeout(r, 400));
       }
 
-      rows.push([name, address, city, website, phone, email, rating, reviewCount, query, today]);
+      rows.push([name, address, city, website, phone, email, rating, reviewCount, query, today, owner]);
     }
 
     console.log(`Schreibe ${rows.length} Leads in Google Sheet...`);
@@ -220,9 +243,10 @@ export const scrapeLeads = schemaTask({
     const withEmail = rows.filter((r) => r[5] !== "").length;
     const withWebsite = rows.filter((r) => r[3] !== "").length;
     const withPhone = rows.filter((r) => r[4] !== "").length;
+    const withOwner = rows.filter((r) => r[10] !== "").length;
 
-    console.log(`✓ Fertig! ${rows.length} Leads | ${withWebsite} Webseiten | ${withPhone} Telefon | ${withEmail} E-Mails | ${skipped} Duplikate übersprungen`);
+    console.log(`✓ Fertig! ${rows.length} Leads | ${withWebsite} Webseiten | ${withPhone} Telefon | ${withEmail} E-Mails | ${withOwner} Geschäftsführer | ${skipped} Duplikate übersprungen`);
 
-    return { total: rows.length, withWebsite, withPhone, withEmail, skipped, query };
+    return { total: rows.length, withWebsite, withPhone, withEmail, withOwner, skipped, query };
   },
 });

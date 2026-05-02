@@ -72,25 +72,31 @@ export async function fetchExistingKeys(token: string, spreadsheetId: string): P
 export const SHEET_HEADERS = [
   "Name", "Adresse", "Stadt", "Webseite", "Telefon",
   "E-Mail", "Bewertung ★", "Anz. Bewertungen", "Suchanfrage", "Datum",
+  "Geschäftsführer",
 ];
 
 export async function ensureHeaders(token: string, spreadsheetId: string): Promise<void> {
   const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:J1`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:K1`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const data = await res.json() as { values?: string[][] };
 
-  if (!data.values || data.values.length === 0) {
+  const currentHeaders = data.values?.[0] ?? [];
+  if (currentHeaders.length < SHEET_HEADERS.length) {
     await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:J1?valueInputOption=RAW`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:K1?valueInputOption=RAW`,
       {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ values: [SHEET_HEADERS] }),
       }
     );
-    console.log("Spaltenüberschriften angelegt.");
+    if (currentHeaders.length === 0) {
+      console.log("Spaltenüberschriften angelegt.");
+    } else {
+      console.log(`Spaltenüberschriften aktualisiert (${currentHeaders.length} → ${SHEET_HEADERS.length} Spalten).`);
+    }
   }
 }
 
@@ -104,7 +110,7 @@ export async function appendLeads(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const res = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:J:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:K:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
