@@ -7,7 +7,6 @@ import {
   ensureHeaders,
   appendLeads,
 } from "./sheets-helpers.js";
-import { fetchImpressumHtml, extractOwner } from "./owner-extractor.js";
 
 // ---------------------------------------------------------------------------
 // Typen
@@ -30,7 +29,7 @@ interface LocalResult {
 async function searchDataForSEO(
   keyword: string,
   location: string,
-  count: number,
+  depth: number,
   login: string,
   password: string
 ): Promise<LocalResult[]> {
@@ -50,7 +49,7 @@ async function searchDataForSEO(
           keyword: query,
           location_name: "Germany",
           language_code: "de",
-          depth: Math.min(count, 700),
+          depth: Math.min(depth, 700),
         },
       ]),
     }
@@ -142,6 +141,20 @@ async function extractEmail(websiteUrl: string, impressumHtml?: string): Promise
 }
 
 // ---------------------------------------------------------------------------
+// Bewertungs-Filter
+//
+// Ist maxReviews gesetzt, fliegen alle Betriebe mit MEHR Bewertungen raus.
+// Weil dadurch ein Teil der Treffer wegfällt, fragen wir bei DataForSEO
+// entsprechend mehr Ergebnisse an (OVERFETCH_FACTOR) und schneiden erst NACH
+// dem Filtern auf die gewünschte Anzahl zu — sonst kämen bei einem engen Filter
+// deutlich weniger Leads raus als angefordert.
+// Einträge ohne Bewertungsdaten gelten als 0 Bewertungen und bleiben drin.
+// ---------------------------------------------------------------------------
+
+const OVERFETCH_FACTOR = 3;
+const MAX_DEPTH = 700;
+
+// ---------------------------------------------------------------------------
 // Haupt-Task
 // ---------------------------------------------------------------------------
 
@@ -152,6 +165,12 @@ export const scrapeLeads = schemaTask({
     location: z.string().describe("Stadt oder Region, z.B. 'Stuttgart'"),
     count: z.number().int().min(1).max(500).default(20).describe("Anzahl gewünschter Leads"),
     emailSearch: z.boolean().default(false).describe("Website nach E-Mail durchsuchen"),
+    maxReviews: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe("Nur Betriebe mit höchstens so vielen Google-Bewertungen. Leer = kein Filter"),
   }),
   retry: { maxAttempts: 2, factor: 2, minTimeoutInMs: 1000, maxTimeoutInMs: 10000 },
   run: async (payload) => {
@@ -170,20 +189,43 @@ export const scrapeLeads = schemaTask({
     if (!privateKeyRaw) throw new Error("GOOGLE_PRIVATE_KEY ist nicht gesetzt");
 
     const privateKey = privateKeyRaw.replace(/\\n/g, "\n");
-    const { keyword, location, count, emailSearch } = payload;
+    const { keyword, location, count, emailSearch, maxReviews } = payload;
     const query = `${keyword} ${location}`.trim();
     const today = new Date().toLocaleDateString("de-DE");
+    const reviewFilterActive = maxReviews !== undefined;
 
-    console.log(`Lead-Scraping gestartet: "${query}" | Ziel: ${count} Leads | E-Mail-Suche: ${emailSearch ? "an" : "aus"}`);
+    console.log(
+      `Lead-Scraping gestartet: "${query}" | Ziel: ${count} Leads | E-Mail-Suche: ${emailSearch ? "an" : "aus"}` +
+        (reviewFilterActive ? ` | Filter: max. ${maxReviews} Bewertungen` : "")
+    );
 
     const token = await getAccessToken(serviceAccountEmail, privateKey);
     console.log("Google Sheets Authentifizierung erfolgreich.");
 
-    console.log(`DataForSEO Suche: "${query}" | Angefragt: ${count} Ergebnisse...`);
-    const allResults = await searchDataForSEO(keyword, location, count, dataForSeoLogin, dataForSeoPassword);
+    // Bei aktivem Filter mehr anfragen, damit nach dem Aussortieren noch genug übrig bleibt
+    const depth = reviewFilterActive ? Math.min(count * OVERFETCH_FACTOR, MAX_DEPTH) : count;
+
+    console.log(`DataForSEO Suche: "${query}" | Angefragt: ${depth} Ergebnisse...`);
+    const allResults = await searchDataForSEO(keyword, location, depth, dataForSeoLogin, dataForSeoPassword);
     console.log(`${allResults.length} Firmen gefunden.`);
 
-    const leads = allResults.slice(0, count);
+    let filteredByReviews = 0;
+    let candidates = allResults;
+
+    if (reviewFilterActive) {
+      candidates = allResults.filter((lead) => (lead.reviews ?? 0) <= maxReviews);
+      filteredByReviews = allResults.length - candidates.length;
+      console.log(
+        `Bewertungs-Filter (max. ${maxReviews}): ${filteredByReviews} aussortiert, ${candidates.length} übrig.`
+      );
+      if (candidates.length < count) {
+        console.log(
+          `Hinweis: Nur ${candidates.length} von ${count} gewünschten Leads erfüllen den Filter — die Suche gibt nicht mehr her.`
+        );
+      }
+    }
+
+    const leads = candidates.slice(0, count);
     if (emailSearch && leads.length > 0) console.log("Starte E-Mail-Suche...");
 
     // Bestehende Einträge (Name + Adresse) aus dem Sheet laden für Duplikat-Prüfung
@@ -212,28 +254,19 @@ export const scrapeLeads = schemaTask({
       const rating = lead.rating?.toString() ?? "";
       const reviewCount = lead.reviews?.toString() ?? "";
 
-      // E-Mail und Geschäftsführer: aus Impressum-Seite extrahieren
+      // E-Mail optional von der Website holen. Der Geschäftsführer wird NICHT mehr
+      // hier extrahiert, sondern später per LLM im Enrichment (schnellerer Scrape,
+      // bessere Namen). Ohne E-Mail-Suche macht der Scrape gar keine Website-Abrufe.
       let email = lead.email ?? "";
-      let owner = "";
 
-      if (website) {
-        const impressumHtml = await fetchImpressumHtml(website);
-
-        if (impressumHtml) {
-          owner = extractOwner(impressumHtml);
-          if (owner) console.log(`  Geschäftsführer: ${owner} (${name})`);
-        }
-
-        if (!email && emailSearch) {
-          console.log(`  E-Mail suchen: ${name}`);
-          email = await extractEmail(website, impressumHtml ?? undefined);
-          if (email) console.log(`    → ${email}`);
-        }
-
+      if (website && emailSearch && !email) {
+        console.log(`  E-Mail suchen: ${name}`);
+        email = await extractEmail(website);
+        if (email) console.log(`    → ${email}`);
         await new Promise((r) => setTimeout(r, 400));
       }
 
-      rows.push([name, address, city, website, phone, email, rating, reviewCount, query, today, owner]);
+      rows.push([name, address, city, website, phone, email, rating, reviewCount, query, today, ""]);
     }
 
     console.log(`Schreibe ${rows.length} Leads in Google Sheet...`);
@@ -243,10 +276,12 @@ export const scrapeLeads = schemaTask({
     const withEmail = rows.filter((r) => r[5] !== "").length;
     const withWebsite = rows.filter((r) => r[3] !== "").length;
     const withPhone = rows.filter((r) => r[4] !== "").length;
-    const withOwner = rows.filter((r) => r[10] !== "").length;
 
-    console.log(`✓ Fertig! ${rows.length} Leads | ${withWebsite} Webseiten | ${withPhone} Telefon | ${withEmail} E-Mails | ${withOwner} Geschäftsführer | ${skipped} Duplikate übersprungen`);
+    console.log(
+      `✓ Fertig! ${rows.length} Leads | ${withWebsite} Webseiten | ${withPhone} Telefon | ${withEmail} E-Mails | ${skipped} Duplikate übersprungen` +
+        (reviewFilterActive ? ` | ${filteredByReviews} wegen Bewertungsanzahl aussortiert` : "")
+    );
 
-    return { total: rows.length, withWebsite, withPhone, withEmail, withOwner, skipped, query };
+    return { total: rows.length, withWebsite, withPhone, withEmail, skipped, filteredByReviews, query };
   },
 });

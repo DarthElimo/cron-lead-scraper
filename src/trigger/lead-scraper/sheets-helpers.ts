@@ -72,12 +72,13 @@ export async function fetchExistingKeys(token: string, spreadsheetId: string): P
 export const SHEET_HEADERS = [
   "Name", "Adresse", "Stadt", "Webseite", "Telefon",
   "E-Mail", "Bewertung ★", "Anz. Bewertungen", "Suchanfrage", "Datum",
-  "Geschäftsführer",
+  "Geschäftsführer", "High-Ticket?", "Confidence", "Erkannte Leistungen",
+  "Betriebsart",
 ];
 
 export async function ensureHeaders(token: string, spreadsheetId: string): Promise<void> {
   const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:K1`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:O1`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const data = await res.json() as { values?: string[][] };
@@ -85,7 +86,7 @@ export async function ensureHeaders(token: string, spreadsheetId: string): Promi
   const currentHeaders = data.values?.[0] ?? [];
   if (currentHeaders.length < SHEET_HEADERS.length) {
     await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:K1?valueInputOption=RAW`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:O1?valueInputOption=RAW`,
       {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -115,6 +116,107 @@ export async function appendLeads(
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ values: rows }),
+      }
+    );
+
+    if (res.ok) return;
+
+    if (res.status === 429 && attempt < maxAttempts) {
+      console.log(`Google Sheets Schreib-Limit erreicht (429). Warte ${delayMs / 1000}s, dann Versuch ${attempt + 1}/${maxAttempts}…`);
+      await new Promise((r) => setTimeout(r, delayMs));
+      delayMs = Math.min(delayMs * 1.5, 300_000);
+      continue;
+    }
+
+    throw new Error(`Google Sheets Fehler ${res.status}: ${await res.text()}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Enrichment (High-Ticket-Klassifikation) — Spalten L/M/N
+// ---------------------------------------------------------------------------
+
+// Spaltenindizes (0-basiert) in einer A:O-Zeile
+export const COL_WEBSITE = 3; // D
+export const COL_OWNER = 10; // K (Geschäftsführer)
+export const COL_HIGH_TICKET = 11; // L
+export const COL_CONFIDENCE = 12; // M
+export const COL_SERVICES = 13; // N
+export const COL_BUSINESS_TYPE = 14; // O (Betriebsart)
+
+export interface SheetRow {
+  rowNumber: number; // 1-basierte Zeilennummer im Sheet (inkl. Header = 1)
+  values: string[];
+}
+
+/** Zählt die belegten Zeilen (inkl. Header) anhand von Spalte A. */
+export async function countSheetRows(token: string, spreadsheetId: string): Promise<number> {
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:A`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) {
+    throw new Error(`Google Sheets Lese-Fehler ${res.status}: ${await res.text()}`);
+  }
+  const data = (await res.json()) as { values?: string[][] };
+  return data.values?.length ?? 0;
+}
+
+/** Liest alle Datenzeilen (A:O) mit ihrer 1-basierten Sheet-Zeilennummer. */
+export async function fetchRowsForEnrichment(
+  token: string,
+  spreadsheetId: string
+): Promise<SheetRow[]> {
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:O`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) {
+    throw new Error(`Google Sheets Lese-Fehler ${res.status}: ${await res.text()}`);
+  }
+  const data = (await res.json()) as { values?: string[][] };
+  const allRows = data.values ?? [];
+
+  // Zeile 0 = Header → Datenzeilen ab Index 1, Sheet-Zeilennummer = index + 1
+  const rows: SheetRow[] = [];
+  for (let i = 1; i < allRows.length; i++) {
+    rows.push({ rowNumber: i + 1, values: allRows[i] ?? [] });
+  }
+  return rows;
+}
+
+export interface EnrichmentUpdate {
+  rowNumber: number;
+  owner: string;
+  label: string;
+  confidence: string;
+  services: string;
+  businessType: string;
+}
+
+/** Schreibt Inhaber + Klassifikation + Betriebsart gezielt in K/L/M/N/O der jeweiligen Zeilen. */
+export async function writeEnrichment(
+  token: string,
+  spreadsheetId: string,
+  updates: EnrichmentUpdate[]
+): Promise<void> {
+  if (updates.length === 0) return;
+
+  const data = updates.map((u) => ({
+    range: `K${u.rowNumber}:O${u.rowNumber}`,
+    values: [[u.owner, u.label, u.confidence, u.services, u.businessType]],
+  }));
+
+  const maxAttempts = 5;
+  let delayMs = 60_000;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ valueInputOption: "RAW", data }),
       }
     );
 

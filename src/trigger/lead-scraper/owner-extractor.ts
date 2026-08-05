@@ -38,7 +38,8 @@ const NAME_PATTERN =
 
 const OWNER_PATTERNS: RegExp[] = [
   new RegExp(
-    "Gesch[äa]ftsf[üu]hrender?\\s*(?:Gesellschafter)?\\s*[:\\-–]\\s*(" + NAME_PATTERN + ")",
+    // matcht "Geschäftsführer", "Geschäftsführerin" und "Geschäftsführende(r) Gesellschafter"
+    "Gesch[äa]ftsf[üu]hr(?:er(?:in)?|ende[rn]?)\\s*(?:Gesellschafter)?\\s*[:\\-–]\\s*(" + NAME_PATTERN + ")",
     "gi"
   ),
   new RegExp("Inhaber(?:in)?\\s*[:\\-–]\\s*(" + NAME_PATTERN + ")", "gi"),
@@ -49,6 +50,27 @@ const OWNER_PATTERNS: RegExp[] = [
   new RegExp("Vorstand(?:svorsitzender)?\\s*[:\\-–]\\s*(" + NAME_PATTERN + ")", "gi"),
 ];
 
+// Großgeschriebene Wörter, die dem NAME_PATTERN folgen können, aber kein Namensteil
+// sind (folgen im Impressum oft direkt hinter dem Namen). Werden hinten abgeschnitten.
+const NAME_STOPWORDS = new Set([
+  "telefon", "tel", "fax", "mobil", "handy", "email", "mail", "web", "internet",
+  "registergericht", "handelsregister", "amtsgericht", "hrb", "hra", "ust", "umsatzsteuer",
+  "steuernummer", "steuer", "sitz", "adresse", "anschrift", "straße", "strasse", "platz",
+  "vertreten", "verantwortlich", "geschäftsführer", "inhaber", "kontakt", "impressum",
+]);
+
+/** Schneidet ab dem ersten nachlaufenden Nicht-Namens-Wort (Label/Adressteil) ab. */
+function cleanName(raw: string): string {
+  const words = raw.replace(/\s+/g, " ").trim().split(" ");
+  const out: string[] = [];
+  for (const w of words) {
+    const bare = w.toLowerCase().replace(/[.,:;]/g, "");
+    if (out.length >= 2 && NAME_STOPWORDS.has(bare)) break;
+    out.push(w);
+  }
+  return out.join(" ");
+}
+
 export function extractOwner(html: string): string {
   const text = stripHtml(html);
   const found: string[] = [];
@@ -57,7 +79,7 @@ export function extractOwner(html: string): string {
     pattern.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text)) !== null) {
-      const name = match[1]?.replace(/\s+/g, " ").trim();
+      const name = cleanName(match[1] ?? "");
       if (name && name.split(" ").length >= 2 && !found.includes(name)) {
         found.push(name);
       }

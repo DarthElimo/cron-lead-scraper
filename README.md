@@ -151,9 +151,12 @@ Im Trigger.dev Dashboard (oder via Claude Code) kannst du einen Test-Run starten
   "keyword": "Zahnarzt",
   "location": "München",
   "count": 10,
-  "emailSearch": false
+  "emailSearch": false,
+  "maxReviews": 100
 }
 ```
+
+`maxReviews` sortiert Betriebe mit mehr Google-Bewertungen aus. Weglassen = kein Filter. Ist der Filter aktiv, sucht der Scraper automatisch tiefer, damit trotzdem die volle Anzahl Leads zusammenkommt.
 
 Die Ergebnisse erscheinen nach wenigen Sekunden in deinem Google Sheet.
 

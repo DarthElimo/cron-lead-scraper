@@ -2,3 +2,4 @@
 node_modules/
 dist/
 .trigger/
+.DS_Store

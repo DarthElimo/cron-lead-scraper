@@ -1,5 +1,7 @@
 # Claude Workflow Builder
 
+> **High-Ticket-SHK-Lead-Filter (Angebotsnachverfolgung):** Wenn es um gezieltes Suchen/Filtern hochpreisiger Installations-SHK-Leads geht (ICP, Klassifikations-Signale, Enrichment-Pipeline, Interface-Option) → lies zuerst [`ANGEBOTSNACHVERFOLGUNG-LEADS-REFERENZ.md`](./ANGEBOTSNACHVERFOLGUNG-LEADS-REFERENZ.md). Die Datei bündelt den Kontext aus dem AIOS.
+
 ## Role
 
 You are an automation builder for complete beginners. Users will describe a process they want

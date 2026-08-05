@@ -414,6 +414,39 @@
     }
     .combo-count.visible { opacity: 1; }
 
+    /* ── High-Ticket presets ─────────────── */
+    .preset-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .preset-chip {
+      background: var(--bg-elevated);
+      border: 1px solid rgba(250,249,246,0.12);
+      border-radius: 8px;
+      color: var(--text-60);
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 13px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s var(--spring);
+      user-select: none;
+    }
+    .preset-chip:hover { border-color: var(--accent-30); color: var(--text); }
+    .preset-chip:active { transform: scale(0.96); }
+    .preset-chip.active {
+      background: var(--accent-18);
+      border-color: var(--accent-30);
+      color: var(--accent);
+    }
+    .preset-hint {
+      font-size: 12px;
+      color: var(--text-40);
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+
     @keyframes spin { to { stroke-dashoffset: -28; } }
   </style>
 </head>
@@ -446,6 +479,7 @@
     <div class="mode-tabs">
       <button class="mode-tab active" id="tabSingle" onclick="switchMode('single')">Einzeln</button>
       <button class="mode-tab" id="tabBulk" onclick="switchMode('bulk')">Bulk Run</button>
+      <button class="mode-tab" id="tabHighTicket" onclick="switchMode('highticket')">High-Ticket SHK</button>
     </div>
 
     <!-- ── Single Mode ── -->
@@ -501,14 +535,48 @@
 
       </div>
 
+      <!-- High-Ticket Optionen (Bulk) -->
+      <button class="paste-add-btn" style="margin-top:4px" onclick="insertShkPresets()">+ SHK-High-Ticket-Begriffe einfügen</button>
+
+      <label class="toggle-wrap" for="bulkHighTicket" style="margin-top:14px;margin-bottom:0">
+        <div class="toggle-info">
+          <div class="toggle-title">High-Ticket-Klassifikation</div>
+          <div class="toggle-sub">Nach dem Scrape automatisch nach High-Ticket filtern/markieren</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="bulkHighTicket" />
+          <span class="slider"></span>
+        </label>
+      </label>
+
       <!-- Combination count -->
       <div class="combo-count" id="comboCount"></div>
+    </div>
+
+    <!-- ── High-Ticket SHK Mode ── -->
+    <div id="highTicketMode" style="display:none">
+      <div class="field">
+        <label>SHK-Suchbegriffe (High-Ticket)</label>
+        <div class="preset-chips" id="shkPresets"></div>
+        <div class="preset-hint">Gezielte Suche nach hochpreisigen Installations-SHK-Leads — anschließend automatisch klassifiziert.</div>
+      </div>
+
+      <div class="field">
+        <label for="htLocation">Standort</label>
+        <input id="htLocation" type="text" placeholder="z.B. Stuttgart" />
+      </div>
     </div>
 
     <!-- ── Shared Settings ── -->
     <div class="field">
       <label for="count">Anzahl Leads pro Suche (max. 500)</label>
       <input id="count" type="number" value="20" min="1" max="500" />
+    </div>
+
+    <div class="field">
+      <label for="maxReviews">Max. Google-Bewertungen</label>
+      <input id="maxReviews" type="number" placeholder="leer = kein Filter" min="0" />
+      <div class="preset-hint">Betriebe mit mehr Bewertungen werden übersprungen. Es wird automatisch tiefer gesucht, damit trotzdem die volle Anzahl Leads zusammenkommt.</div>
     </div>
 
     <label>E-Mail-Suche</label>
@@ -542,13 +610,22 @@
       Bulk-Scraping starten
     </button>
 
+    <!-- High-Ticket Button -->
+    <button class="btn" id="htBtn" onclick="triggerHighTicket()" style="display:none">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 1l2 4.5 5 .5-3.7 3.3 1.1 4.9L8 11.8 3.6 14.2l1.1-4.9L1 6l5-.5z"/>
+      </svg>
+      High-Ticket-Liste erstellen
+    </button>
+
     <div id="status" class="status"></div>
 
     <details class="api-section">
       <summary>Einstellungen</summary>
       <div class="field">
         <label for="apiKey">Trigger.dev Secret Key</label>
-        <input id="apiKey" type="password" placeholder="tr_dev_..." value="tr_dev_gz3CuArCnwA78IFq0z0z" />
+        <input id="apiKey" type="password" placeholder="tr_dev_..." autocomplete="off" />
+        <div class="preset-hint">Wird nur lokal in deinem Browser gespeichert (nicht im Code).</div>
       </div>
     </details>
   </div>
@@ -562,17 +639,44 @@
     // ── Mode Switch ────────────────────────────────────────
     function switchMode(mode) {
       currentMode = mode;
-      const isBulk = mode === 'bulk';
+      const isSingle = mode === 'single';
+      const isBulk   = mode === 'bulk';
+      const isHT     = mode === 'highticket';
 
-      document.getElementById('singleMode').style.display = isBulk ? 'none' : 'block';
-      document.getElementById('bulkMode').style.display   = isBulk ? 'block' : 'none';
-      document.getElementById('runBtn').style.display     = isBulk ? 'none' : 'flex';
-      document.getElementById('bulkBtn').style.display    = isBulk ? 'flex' : 'none';
+      document.getElementById('singleMode').style.display     = isSingle ? 'block' : 'none';
+      document.getElementById('bulkMode').style.display       = isBulk   ? 'block' : 'none';
+      document.getElementById('highTicketMode').style.display = isHT     ? 'block' : 'none';
 
-      document.getElementById('tabSingle').classList.toggle('active', !isBulk);
+      document.getElementById('runBtn').style.display  = isSingle ? 'flex' : 'none';
+      document.getElementById('bulkBtn').style.display = isBulk   ? 'flex' : 'none';
+      document.getElementById('htBtn').style.display   = isHT     ? 'flex' : 'none';
+
+      document.getElementById('tabSingle').classList.toggle('active', isSingle);
       document.getElementById('tabBulk').classList.toggle('active', isBulk);
+      document.getElementById('tabHighTicket').classList.toggle('active', isHT);
 
       document.getElementById('status').className = 'status';
+    }
+
+    // ── SHK Presets (High-Ticket mode) ─────────────────────
+    const SHK_PRESETS = [
+      'Heizungsbau', 'Badsanierung', 'Wärmepumpe Installateur',
+      'Sanitär Installation', 'Komplettsanierung', 'Heizungstausch',
+    ];
+    const selectedPresets = new Set(SHK_PRESETS);
+
+    function renderPresets() {
+      const c = document.getElementById('shkPresets');
+      c.innerHTML = SHK_PRESETS.map((p, i) =>
+        `<span class="preset-chip${selectedPresets.has(p) ? ' active' : ''}" onclick="togglePreset(${i})">${escHtml(p)}</span>`
+      ).join('');
+    }
+
+    function togglePreset(i) {
+      const p = SHK_PRESETS[i];
+      if (selectedPresets.has(p)) selectedPresets.delete(p);
+      else selectedPresets.add(p);
+      renderPresets();
     }
 
     // ── Keyword list helpers ───────────────────────────────
@@ -670,12 +774,28 @@
       }
     }
 
+    // ── Bewertungs-Filter auslesen ─────────────────────────
+    // Leeres Feld = kein Filter (undefined → fliegt beim JSON.stringify raus).
+    // Ungültige Eingabe = false, damit der Aufrufer abbrechen kann.
+    function readMaxReviews() {
+      const raw = document.getElementById('maxReviews').value.trim();
+      if (raw === '') return undefined;
+      const val = parseInt(raw, 10);
+      if (isNaN(val) || val < 0) return false;
+      return val;
+    }
+
+    function reviewNote(maxReviews) {
+      return maxReviews === undefined ? '' : `<br>Nur Betriebe mit höchstens ${maxReviews} Bewertungen.`;
+    }
+
     // ── Single Run ─────────────────────────────────────────
     async function triggerScraper() {
       const keyword     = document.getElementById('keyword').value.trim();
       const location    = document.getElementById('location').value.trim();
       const count       = parseInt(document.getElementById('count').value, 10);
       const emailSearch = document.getElementById('emailToggle').checked;
+      const maxReviews  = readMaxReviews();
       const apiKey      = document.getElementById('apiKey').value.trim();
       const btn         = document.getElementById('runBtn');
 
@@ -684,6 +804,9 @@
       }
       if (isNaN(count) || count < 1 || count > 500) {
         showStatus('Anzahl muss zwischen 1 und 500 liegen.', 'error'); return;
+      }
+      if (maxReviews === false) {
+        showStatus('Max. Bewertungen muss eine Zahl ab 0 sein (oder leer bleiben).', 'error'); return;
       }
 
       btn.disabled = true;
@@ -694,7 +817,7 @@
         const res = await fetch('https://api.trigger.dev/api/v1/tasks/scrape-leads/trigger', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-          body: JSON.stringify({ payload: { keyword, location, count, emailSearch } }),
+          body: JSON.stringify({ payload: { keyword, location, count, emailSearch, maxReviews } }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -702,7 +825,7 @@
         } else {
           const runUrl = `https://cloud.trigger.dev/runs/${data.id}`;
           showStatus(
-            `Gestartet — ${count} Leads werden gesucht.<br>
+            `Gestartet — ${count} Leads werden gesucht.${reviewNote(maxReviews)}<br>
             <a class="run-link" href="${runUrl}" target="_blank">Run live verfolgen →</a>`,
             'success'
           );
@@ -715,10 +838,18 @@
       }
     }
 
+    // ── SHK-Presets in die Bulk-Branchenliste einfügen ─────
+    function insertShkPresets() {
+      SHK_PRESETS.forEach(p => addToList(keywords, p));
+      renderKeywords();
+    }
+
     // ── Bulk Run ───────────────────────────────────────────
     async function triggerBulkScraper() {
       const count       = parseInt(document.getElementById('count').value, 10);
       const emailSearch = document.getElementById('emailToggle').checked;
+      const highTicket  = document.getElementById('bulkHighTicket').checked;
+      const maxReviews  = readMaxReviews();
       const apiKey      = document.getElementById('apiKey').value.trim();
       const btn         = document.getElementById('bulkBtn');
 
@@ -728,17 +859,22 @@
       if (isNaN(count) || count < 1 || count > 500) {
         showStatus('Anzahl muss zwischen 1 und 500 liegen.', 'error'); return;
       }
+      if (maxReviews === false) {
+        showStatus('Max. Bewertungen muss eine Zahl ab 0 sein (oder leer bleiben).', 'error'); return;
+      }
 
       const total = keywords.length * locations.length;
+      // High-Ticket an → Orchestrator (scrapt + klassifiziert); sonst klassischer Bulk-Scrape
+      const taskId = highTicket ? 'scrape-and-enrich' : 'bulk-scrape';
       btn.disabled = true;
       btn.innerHTML = spinnerHtml(`${total} Runs werden gestartet…`);
-      showStatus('Bulk-Task wird gestartet…', 'info');
+      showStatus(highTicket ? 'High-Ticket-Bulk-Lauf wird gestartet…' : 'Bulk-Task wird gestartet…', 'info');
 
       try {
-        const res = await fetch('https://api.trigger.dev/api/v1/tasks/bulk-scrape/trigger', {
+        const res = await fetch(`https://api.trigger.dev/api/v1/tasks/${taskId}/trigger`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-          body: JSON.stringify({ payload: { keywords, locations, count, emailSearch } }),
+          body: JSON.stringify({ payload: { keywords, locations, count, emailSearch, maxReviews } }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -747,7 +883,7 @@
           const runUrl = `https://cloud.trigger.dev/runs/${data.id}`;
           showStatus(
             `<strong>${total} Kombinationen</strong> wurden gestartet.<br>
-            ${keywords.length} Branchen × ${locations.length} Standorte<br>
+            ${keywords.length} Branchen × ${locations.length} Standorte${reviewNote(maxReviews)}${highTicket ? '<br>Anschließend automatische High-Ticket-Klassifikation.' : ''}<br>
             <a class="run-link" href="${runUrl}" target="_blank">Orchestrator-Run verfolgen →</a>`,
             'success'
           );
@@ -757,6 +893,59 @@
       } finally {
         btn.disabled = false;
         btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg> Bulk-Scraping starten`;
+      }
+    }
+
+    // ── High-Ticket Run ────────────────────────────────────
+    async function triggerHighTicket() {
+      const keywords    = Array.from(selectedPresets);
+      const location    = document.getElementById('htLocation').value.trim();
+      const count       = parseInt(document.getElementById('count').value, 10);
+      const emailSearch = document.getElementById('emailToggle').checked;
+      const maxReviews  = readMaxReviews();
+      const apiKey      = document.getElementById('apiKey').value.trim();
+      const btn         = document.getElementById('htBtn');
+
+      if (keywords.length === 0) {
+        showStatus('Bitte mindestens einen SHK-Suchbegriff wählen.', 'error'); return;
+      }
+      if (!location) {
+        showStatus('Bitte einen Standort eingeben.', 'error'); return;
+      }
+      if (isNaN(count) || count < 1 || count > 500) {
+        showStatus('Anzahl muss zwischen 1 und 500 liegen.', 'error'); return;
+      }
+      if (maxReviews === false) {
+        showStatus('Max. Bewertungen muss eine Zahl ab 0 sein (oder leer bleiben).', 'error'); return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = spinnerHtml('Läuft…');
+      showStatus('High-Ticket-Lauf wird gestartet…', 'info');
+
+      try {
+        const res = await fetch('https://api.trigger.dev/api/v1/tasks/scrape-and-enrich/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({ payload: { keywords, locations: [location], count, emailSearch, maxReviews } }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus(`Fehler: ${data.error || JSON.stringify(data)}`, 'error');
+        } else {
+          const runUrl = `https://cloud.trigger.dev/runs/${data.id}`;
+          showStatus(
+            `<strong>${keywords.length} SHK-Begriffe</strong> in ${escHtml(location)} werden gescrapt und automatisch klassifiziert.${reviewNote(maxReviews)}<br>
+            Die High-Ticket-Treffer landen markiert im Sheet (Spalten High-Ticket? / Confidence / Leistungen).<br>
+            <a class="run-link" href="${runUrl}" target="_blank">Run verfolgen →</a>`,
+            'success'
+          );
+        }
+      } catch (err) {
+        showStatus(`Verbindungsfehler: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1l2 4.5 5 .5-3.7 3.3 1.1 4.9L8 11.8 3.6 14.2l1.1-4.9L1 6l5-.5z"/></svg> High-Ticket-Liste erstellen`;
       }
     }
 
@@ -770,6 +959,16 @@
     function spinnerHtml(label) {
       return `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="6" stroke-dasharray="28" stroke-dashoffset="10" style="animation:spin 0.8s linear infinite;transform-origin:center"/></svg> ${label}`;
     }
+
+    // ── API-Key: nur lokal im Browser merken (nicht im Code) ──
+    const apiKeyInput = document.getElementById('apiKey');
+    apiKeyInput.value = localStorage.getItem('triggerApiKey') || '';
+    apiKeyInput.addEventListener('input', () => {
+      localStorage.setItem('triggerApiKey', apiKeyInput.value.trim());
+    });
+
+    // ── Init ───────────────────────────────────────────────
+    renderPresets();
   </script>
 </body>
 </html>

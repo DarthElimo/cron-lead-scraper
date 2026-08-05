@@ -19,6 +19,12 @@ const bulkScrapeSchema = z.object({
     .describe("Liste der Standorte"),
   count: z.number().int().min(1).max(500).default(20).describe("Leads pro Kombination"),
   emailSearch: z.boolean().default(false).describe("E-Mail-Suche aktivieren"),
+  maxReviews: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Nur Betriebe mit höchstens so vielen Google-Bewertungen. Leer = kein Filter"),
 });
 
 // ---------------------------------------------------------------------------
@@ -31,17 +37,18 @@ export const bulkScrape = schemaTask({
   schema: bulkScrapeSchema,
   // No retry — retrying the orchestrator would re-dispatch all combinations
   run: async (payload) => {
-    const { keywords, locations, count, emailSearch } = payload;
+    const { keywords, locations, count, emailSearch, maxReviews } = payload;
 
     // Build the full Cartesian product: every keyword × every location
     const items = keywords.flatMap((keyword) =>
       locations.map((location) => ({
-        payload: { keyword, location, count, emailSearch },
+        payload: { keyword, location, count, emailSearch, maxReviews },
       }))
     );
 
     console.log(
-      `Bulk-Scraping: ${keywords.length} Branchen × ${locations.length} Standorte = ${items.length} Kombinationen`
+      `Bulk-Scraping: ${keywords.length} Branchen × ${locations.length} Standorte = ${items.length} Kombinationen` +
+        (maxReviews !== undefined ? ` | Filter: max. ${maxReviews} Bewertungen` : "")
     );
 
     // batchTrigger supports up to 500 items per call — chunk if needed
@@ -70,6 +77,7 @@ export const bulkScrape = schemaTask({
       failedChunks,
       count,
       emailSearch,
+      maxReviews: maxReviews ?? null,
     };
   },
 });
